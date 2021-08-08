@@ -355,7 +355,7 @@ function parseMovieCriteria() {
     }
     if (criteria.releaseDate != '') {
         whereClause += whereClause.includes('WHERE') ? ' AND' : ' WHERE';
-        whereClause += ` Movie.releaseDate = "${criteria.releaseDate}"`;
+        whereClause += ` strftime("%Y",Movie.releaseDate) = "${criteria.releaseDate}"`;
     }
     if (criteria.runtime != '') {
         whereClause += whereClause.includes('WHERE') ? ' AND' : ' WHERE';
@@ -527,7 +527,7 @@ function setMovieViewContent(movie) {
     console.log(movie);
     document.getElementById('movie-title').innerText = movie.title;
     document.getElementById('rating-view').value = movie.rating;
-    document.getElementById('runtime').value = movie.runtime;
+    document.getElementById('runtime-edit').value = movie.runtime;
     document.getElementById('releaseDate-movie').value = `${movie.releaseDate}`;
     document.getElementById('info').value = movie.info;
     document.getElementById('movie-view').dataset.id = movie.id;
@@ -637,6 +637,9 @@ function addActorResult(row) {
                 }
             }
             else { // new actor
+                if (!confirm(`Would you like to create new Actor: ${row.name}?`)) {
+                    return;
+                }
                 activeContentEditableItem = addActor(row);
                 const actorQuery = `INSERT INTO Actor (id, name) VALUES (${row.id}, "${row.name}")`;
                 const StarsInQuery = `INSERT INTO StarsIn (aID, mID) VALUES (${nextActorId}, ${document.getElementById('movie-view').dataset.id})`;
@@ -683,12 +686,15 @@ function addDirectorResult(row) {
                 }
             }
             else { // new director
+                if (!confirm(`Would you like to create new Director: ${row.name}?`)) {
+                    return;
+                }
                 activeContentEditableItem = addDirector(row);
                 const directorQuery = `INSERT INTO Director (id, name) VALUES (${row.id}, "${row.name}")`;
                 const directsQuery = `INSERT INTO Directs (dID, mID) VALUES (${nextDirectorId}, ${document.getElementById('movie-view').dataset.id})`;
                 queryDatabase(directorQuery);
                 queryDatabase(directsQuery);
-                nextActorId++;
+                nextDirectorId++;
             }
             activeContentEditableItem.innerText = row.name;
             activeContentEditableItem.dataset.id = row.id;
@@ -775,6 +781,7 @@ function populateActorDirectorResults(name, type) {
         callbackOnDatabase(queryActor(name), addActorResult);
         break;
     default:
+        addDirectorResult({ id: nextDirectorId, name });
         callbackOnDatabase(queryDirector(name), addDirectorResult);
     }
 }
@@ -929,6 +936,14 @@ findMovieButton.addEventListener('click', () => {
 
     // make sure the type is find so we know what we're doing on save/edit
     document.getElementById('find-a-movie').dataset.type = 'find';
+    const toHide = document.getElementById('releaseDate');
+    const hidden = document.getElementById('hidden-input');
+    hidden.name = 'releaseDate';
+    hidden.id = 'releaseDate';
+    toHide.name = '';
+    toHide.id = 'hidden-input';
+    hidden.classList.remove('hide');
+    toHide.classList.add('hide');
 });
 
 addMovieButton.addEventListener('click', () => {
@@ -936,6 +951,14 @@ addMovieButton.addEventListener('click', () => {
 
     // make sure the type is add so we know what to do on save
     document.getElementById('find-a-movie').dataset.type = 'add';
+    const hidden = document.getElementById('hidden-input');
+    const toHide = document.getElementById('releaseDate');
+    hidden.name = 'releaseDate';
+    hidden.id = 'releaseDate';
+    toHide.name = '';
+    toHide.id = 'hidden-input';
+    hidden.classList.remove('hide');
+    toHide.classList.add('hide');
 });
 
 /* Bind edit button to toggle editable items */
@@ -950,7 +973,7 @@ saveButton.addEventListener('click', () => {
     const mID = document.getElementById('movie-view').dataset.id;
     const info = document.getElementById('info').value;
     const releaseDate = document.getElementById('releaseDate-movie').value;
-    const runtime = document.getElementById('runtime').value;
+    const runtime = document.getElementById('runtime-edit').value;
     const query = `UPDATE Movie SET info = "${info}", releaseDate = "${releaseDate}", runtime = ${runtime} WHERE Movie.id = ${mID}`;
 
     queryDatabase(query);
@@ -1106,4 +1129,12 @@ document.getElementById('back-from-top-movies').addEventListener('click', () => 
     while (nodeList.firstChild != null) {
         nodeList.firstChild.remove();
     }
+});
+
+Array.from(document.getElementsByClassName('numeric')).forEach((element) => {
+    element.addEventListener('keypress', (e) => {
+        if (e.key == 'e') {
+            e.preventDefault();
+        }
+    });
 });

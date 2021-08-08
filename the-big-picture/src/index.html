@@ -27,15 +27,16 @@
           <div class="selection-container" id="releaseDate-input-container">
             <label for="releaseDate">Release Date:</label>
             <input type="date" name="releaseDate" id="releaseDate" class="criteria">
+            <input type="number" name="" id="hidden-input" class="criteria hide">
           </div>
           <div class="selection-container " id="runtime-input-container">
             <label for="runtime">Runtime:</label>
-            <input type="number" name="runtime" id="" class="criteria">
+            <input type="number" name="runtime" id="runtime" class="criteria numeric">
           </div>
           <div class="selection-container" id="rating-input-container">
             <label for="rating">Rating:</label>
             <!--Maybe buttons would be good here-->
-            <input type="number" name="rating" id="rating" class="criteria">
+            <input type="number" name="rating" id="rating" class="criteria numeric">
             <select id="select">
               <option value=">">Greater Than</option>
               <option value="<">Less Than</option>
@@ -90,11 +91,11 @@
       <div class="right-section"> 
         <div class="edit-container">
           <label for="rating">Rating:</label>
-          <input class="edit-item" type="number" name="rating" id="rating-view" readonly>
+          <input class="edit-item numeric" type="number" name="rating" id="rating-view" readonly>
         </div>
         <div class="edit-container">
           <label for="runtime">Runtime:</label>
-          <input class="edit-item" type="number" name="runtime" id="runtime" readonly>
+          <input class="edit-item numeric" type="number" name="runtime" id="runtime-edit" readonly>
         </div>
         <div class="edit-container">
           <label for="releaseDate">Release Date:</label>
