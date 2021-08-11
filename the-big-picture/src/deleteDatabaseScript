@@ -1,0 +1,7 @@
+drop table Movie;
+drop table Describes;
+drop table Actor;
+drop table StarsIn;
+drop table Director;
+drop table Directs; 
+drop table Review;
