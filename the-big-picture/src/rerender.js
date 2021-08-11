@@ -417,7 +417,7 @@ function addIndividualReview(review) {
  * @param {movie object} movie - movie to find reviews for
  */
 function addReviews(movie) {
-    const query = `SELECT review.id, review.content FROM review INNER JOIN Describes on review.id = rID where mID = ${movie.id} LIMIT 100`;
+    const query = `SELECT review.id, review.content FROM review INNER JOIN Describes on review.id = rID where mID = ${movie.id}`;
     callbackOnDatabase(query, addIndividualReview);
 }
 
