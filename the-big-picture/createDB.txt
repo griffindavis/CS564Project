@@ -32,7 +32,8 @@ CREATE TABLE Movie (
     runtime INTEGER, 
     rating INTEGER,
     count INTEGER,
-    link VARCHAR(255)
+    link VARCHAR(255),
+    UNIQUE (title)
 );
 
 .mode csv

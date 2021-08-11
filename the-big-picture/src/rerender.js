@@ -8,6 +8,7 @@ const sqlite3 = require('sqlite3').verbose();
 let nextActorId;
 let nextDirectorId;
 let nextMovieId;
+let dupFound = false; // used to prevent duplicates
 
 /**
  * TODO: likely delete this, mostly for testing
@@ -341,7 +342,7 @@ function parseMovieCriteria() {
         query += ` INNER JOIN (SELECT Director.name, mID FROM Directs INNER JOIN Director ON Directs.dID = Director.id WHERE Director.name LIKE "%${criteria.directorName}%") ON mID = Movie.id`;
     }
     if (criteria.reviewString != '') {
-        query += ` INNER JOIN (SELECT Review.content, mID FROM Review INNER JOIN Describes ON Describes.rID = Review.id WHERE Review.content LIKE "%${criteria.reviewString}%") ON mID = Movie.id`;
+        query += ` INNER JOIN (SELECT DISTINCT Review.content, mID FROM Review INNER JOIN Describes ON Describes.rID = Review.id WHERE Review.content LIKE "%${criteria.reviewString}%") ON mID = Movie.id`;
     }
     let whereClause = '';
     if (criteria.title != '') {
@@ -373,6 +374,9 @@ function parseMovieCriteria() {
         whereClause += whereClause.includes('WHERE') ? ' AND' : ' WHERE';
         whereClause += ` aID = ${criteria.actorId}`;
     }
+    if (criteria.reviewString != '') {
+        query += ' GROUP BY Movie.id';
+    }
     const res = (whereClause != '') ? query += whereClause : query;
     return res;
 }
@@ -395,7 +399,7 @@ function htmlToElement(html) {
  */
 function generateMovieResultTemplate(movie) {
     return `<div class="result" data-id="${movie.id}">
-                <span>${movie.title} - ${movie.releaseDate}</span>
+                <span>${movie.title} - ${movie.releaseDate.split('-')[0]}</span>
             </div>`;
 }
 
@@ -638,6 +642,7 @@ function addActorResult(row) {
             }
             else { // new actor
                 if (!confirm(`Would you like to create new Actor: ${row.name}?`)) {
+                    document.getElementById('search-input').value = ''; // clear search input
                     return;
                 }
                 activeContentEditableItem = addActor(row);
@@ -687,6 +692,7 @@ function addDirectorResult(row) {
             }
             else { // new director
                 if (!confirm(`Would you like to create new Director: ${row.name}?`)) {
+                    document.getElementById('search-input').value = ''; // clear search input
                     return;
                 }
                 activeContentEditableItem = addDirector(row);
@@ -712,28 +718,41 @@ function addDirectorResult(row) {
 /**
  * Adds the new movie to the database
  */
-function addMovieToDatabase() { //TODO: actually file to the database
+function addMovieToDatabase() {
     getSearchCriteria();
-    console.log('Adding Movie');
-    console.log(criteria);
-    const insertQuery = `INSERT INTO Movie (id, title, releaseDate, runtime, rating, count) VALUES(${nextMovieId}, "${criteria.title}", "${criteria.releaseDate}", ${criteria.runtime}, ${criteria.rating}, 1)`;
-    queryDatabase(insertQuery);
-    // actors
-    queryDatabase(`INSERT INTO Directs (dID, mID) VALUES (${criteria.directorId}, ${nextMovieId})`);
-    // directors
-    queryDatabase(`INSERT INTO StarsIn (aID, mID) VALUES (${criteria.actorId}, ${nextMovieId})`);
-    const movie = {
-        id: nextMovieId,
-        title: criteria.title,
-        releaseDate: criteria.releaseDate,
-        runtime: criteria.runtime,
-        rating: criteria.rating,
-    };
-    nextMovieId++;
-    findMovieDiv.classList.add('hide');
-    document.getElementById('movie-view').classList.remove('hide');
+
     setTimeout(() => {
-        setMovieViewContent(movie);
+        if (dupFound) { // prevent duplicates
+            dupFound = false;
+            return;
+        }
+
+        const insertQuery = `INSERT INTO Movie (id, title, releaseDate, runtime, rating, count) VALUES(${nextMovieId}, "${criteria.title}", "${criteria.releaseDate}", "${criteria.runtime}", "${criteria.rating}", 1)`;
+        queryDatabase(insertQuery);
+        console.log(criteria);
+        // directors
+        if (criteria.directorId != '') {
+            queryDatabase(`INSERT INTO Directs (dID, mID) VALUES (${criteria.directorId}, ${nextMovieId})`);
+        }
+
+        // actors
+        if (criteria.actorId != '') {
+            queryDatabase(`INSERT INTO StarsIn (aID, mID) VALUES (${criteria.actorId}, ${nextMovieId})`);
+        }
+
+        const movie = {
+            id: nextMovieId,
+            title: criteria.title,
+            releaseDate: criteria.releaseDate,
+            runtime: criteria.runtime,
+            rating: criteria.rating,
+        };
+        nextMovieId++;
+        findMovieDiv.classList.add('hide');
+        document.getElementById('movie-view').classList.remove('hide');
+        setTimeout(() => {
+            setMovieViewContent(movie);
+        }, 1000);
     }, 1000);
 }
 
@@ -741,12 +760,18 @@ function addMovieToDatabase() { //TODO: actually file to the database
  * Validates the add criteria for a movie
  * @returns the text for an alert message, no text means we're good
  */
-// TODO: add more criteria
 function validateAddMovieCriteria() {
     let text = '';
+    console.log('validating criteria');
     getSearchCriteria();
     if (criteria.title == '') {
         text += 'Missing A Title \n';
+    }
+    else {
+        callbackOnDatabase(`SELECT id FROM Movie WHERE Movie.title ='${criteria.title}'`, () => {
+            alert(`${criteria.title} is a duplciate \n`);
+            dupFound = true;
+        });
     }
     return text;
 }
@@ -931,10 +956,14 @@ function cleanupMovieView() {
 /* Event Listners */
 movieBack.addEventListener('click', cleanupMovieView);
 
+/* binding the find movie button */
 findMovieButton.addEventListener('click', () => {
     showFindMovie();
 
     // make sure the type is find so we know what we're doing on save/edit
+    if (document.getElementById('find-a-movie').dataset.type == 'find') {
+        return; // don't constantly toggle these things below
+    }
     document.getElementById('find-a-movie').dataset.type = 'find';
     const toHide = document.getElementById('releaseDate');
     const hidden = document.getElementById('hidden-input');
@@ -944,12 +973,18 @@ findMovieButton.addEventListener('click', () => {
     toHide.id = 'hidden-input';
     hidden.classList.remove('hide');
     toHide.classList.add('hide');
+    document.getElementById('select').classList.remove('hide');
+    document.getElementById('review-string-input-container').classList.remove('hide');
 });
 
+/* binding the add movie button */
 addMovieButton.addEventListener('click', () => {
     showAddMovie();
 
     // make sure the type is add so we know what to do on save
+    if (document.getElementById('find-a-movie').dataset.type == 'add') {
+        return;// don't constantly toggle these things below
+    }
     document.getElementById('find-a-movie').dataset.type = 'add';
     const hidden = document.getElementById('hidden-input');
     const toHide = document.getElementById('releaseDate');
@@ -959,6 +994,8 @@ addMovieButton.addEventListener('click', () => {
     toHide.id = 'hidden-input';
     hidden.classList.remove('hide');
     toHide.classList.add('hide');
+    document.getElementById('select').classList.add('hide');
+    document.getElementById('review-string-input-container').classList.add('hide');
 });
 
 /* Bind edit button to toggle editable items */
@@ -968,8 +1005,6 @@ edit.addEventListener('click', () => {
 
 /* Bind save button to disable editable items */
 saveButton.addEventListener('click', () => {
-    //TODO: determine what needs to be saved
-    //TODO: handle rating
     const mID = document.getElementById('movie-view').dataset.id;
     const info = document.getElementById('info').value;
     const releaseDate = document.getElementById('releaseDate-movie').value;
@@ -1010,7 +1045,10 @@ searchCancel.addEventListener('click', () => {
     document.getElementById('search-input').value = '';
 });
 
-//TODO: implement SQL query to delete
+/**
+ * Deletes a movie
+ */
+//TODO: delete other things that are depended on the movie, like review
 function deleteMovie() {
     const id = document.getElementById('movie-view').dataset.id;
     console.log(`Delete ${id}`);
@@ -1063,12 +1101,22 @@ document.getElementById('add-director').addEventListener('click', () => {
     showSearchPopup('director');
 });
 
+/**
+ * Generates the html for a top result
+ * @param {*} movie - object
+ * @returns html string
+ */
 function generateTopResultTemplate(movie) {
     return `<div class="top-result" data-id="${movie.id}">
                     <span>${movie.title} - ${movie.rating} - ${movie.count}</span>
                 </div>`;
 }
 
+/**
+ * Adds a top result div
+ * @param {row object} row  - row from query
+ */
+//TODO: order by
 function addtopResult(row) {
     const child = htmlToElement(generateTopResultTemplate(row));
     child.addEventListener('click', () => { // add event listener to element
@@ -1093,12 +1141,21 @@ topMoviesButton.addEventListener('click', () => {
     callbackOnDatabase(query, addtopResult);
 });
 
+/**
+ * Generates the year template
+ * @param {*} row - row object with year and average
+ * @returns html string
+ */
 function generateYearResultTemplate(row) {
     return `<div class="rating-result">
                 <span>${row.year} - ${row.average}</span>
             </div>`;
 }
 
+/**
+ * Adds a year result
+ * @param {*} row - row to add
+ */
 function addYearResult(row) {
     const child = htmlToElement(generateYearResultTemplate(row));
     document.getElementById('rating-by-year-list').appendChild(child);
@@ -1112,6 +1169,7 @@ document.getElementById('rating-by-year').addEventListener('click', () => {
     callbackOnDatabase(query, addYearResult);
 });
 
+/* handle the back button */
 document.getElementById('back-from-rating-view').addEventListener('click', () => {
     document.getElementById('rating-by-year-view').classList.add('hide');
     showFindMovie();
@@ -1121,6 +1179,7 @@ document.getElementById('back-from-rating-view').addEventListener('click', () =>
     }
 });
 
+/* handle the back button */
 document.getElementById('back-from-top-movies').addEventListener('click', () => {
     document.getElementById('top-movie-view').classList.add('hide');
     showFindMovie();
@@ -1131,6 +1190,9 @@ document.getElementById('back-from-top-movies').addEventListener('click', () => 
     }
 });
 
+/**
+ * Handle numeric inputs accepting e as a value
+ */
 Array.from(document.getElementsByClassName('numeric')).forEach((element) => {
     element.addEventListener('keypress', (e) => {
         if (e.key == 'e') {
