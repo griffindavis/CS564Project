@@ -621,7 +621,7 @@ function generateSearchTemplate(record) {
  * Adds results from Actor search
  * @param {id: "", name: ""} row - row of the table
  */
-function addActorResult(row) {
+function addActorResult(row, insertFirst) {
     const child = htmlToElement(generateSearchTemplate(row)); // create element
 
     child.addEventListener('click', () => { // add event listener to element
@@ -663,14 +663,19 @@ function addActorResult(row) {
         }
         document.getElementById('search-input').value = ''; // clear search input
     });
-    searchResultsDiv.appendChild(child); // finally add this to the div
+    if (insertFirst) {
+        searchResultsDiv.insertBefore(child, searchResultsDiv.firstChild);
+    }
+    else {
+        searchResultsDiv.appendChild(child); // finally add this to the div
+    }
 }
 
 /**
  * Adds results from Director search
  * @param {id: "", name: ""} row - row of the table
  */
-function addDirectorResult(row) {
+function addDirectorResult(row, insertFirst) {
     const child = htmlToElement(generateSearchTemplate(row)); // create element
 
     child.addEventListener('click', () => { // add event listener to element
@@ -712,7 +717,12 @@ function addDirectorResult(row) {
         }
         document.getElementById('search-input').value = ''; // clear search input
     });
-    searchResultsDiv.appendChild(child); // finally add this to the div
+    if (insertFirst) {
+        searchResultsDiv.insertBefore(child, searchResultsDiv.firstChild);
+    }
+    else {
+        searchResultsDiv.appendChild(child); // finally add this to the div
+    }
 }
 
 /**
@@ -798,15 +808,34 @@ findAddbutton.addEventListener('click', () => {
         break;
     }
 });
-
+let timeout = '';
 function populateActorDirectorResults(name, type) {
     switch (type) {
     case 'actor':
-        addActorResult({ id: nextActorId, name });
+        // don't allow duplicates
+        timeout = setTimeout(() => {
+            addActorResult({ id: nextActorId, name }, true);
+        }, 1000);
+
+        callbackOnDatabase(`SELECT id FROM Actor WHERE Actor.name = "${name}"`, () => {
+            clearTimeout(timeout);
+        });
+        
+        // end duplicate checking above
         callbackOnDatabase(queryActor(name), addActorResult);
         break;
     default:
-        addDirectorResult({ id: nextDirectorId, name });
+        // don't allow duplicates
+        timeout = setTimeout(() => {
+            addDirectorResult({ id: nextDirectorId, name }, true);
+        }, 1000);
+
+        callbackOnDatabase(`SELECT id FROM Director WHERE Director.name = "${name}"`, () => {
+            clearTimeout(timeout);
+        });
+        
+        // end duplicate checking above
+
         callbackOnDatabase(queryDirector(name), addDirectorResult);
     }
 }
