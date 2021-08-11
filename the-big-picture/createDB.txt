@@ -134,3 +134,7 @@ INNER JOIN Movie ON Movie.link = directorTemp.link;
 
 DROP TABLE director_id_map;
 DROP TABLE directorTemp;
+
+DELETE FROM Actor WHERE id IN (select id from actor where id not in (select aid "id" from starsin));
+DELETE FROM Director WHERE id IN (select id from Director where id not in (select did "id" from Directs));
+DELETE FROM Review WHERE id IN (select id from Review WHERE id not in (SELECT rID FROM Describes));

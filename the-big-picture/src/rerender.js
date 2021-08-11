@@ -1,7 +1,7 @@
 /* eslint-disable max-len */
 /* eslint-disable no-alert */
 /* eslint-disable no-case-declarations */
-/* eslint-disable no-console */ //TODO: probably remove this
+/* eslint-disable no-console */
 /* eslint-disable eqeqeq */
 const sqlite3 = require('sqlite3').verbose();
 
@@ -53,8 +53,7 @@ function callbackOnDatabase(query, callback, insert) {
         console.log('Connected to the  database.');
     });
 
-    //TODO: delete
-    console.log(query);
+    //console.log(query);
 
     db.serialize(() => {
         db.each(query, (err, row) => {
@@ -463,6 +462,10 @@ function addActor(actor) {
             const starsInQuery = `DELETE FROM StarsIn WHERE aID = ${e.target.dataset.id} AND mID = ${document.getElementById('movie-view').dataset.id}`;
             e.target.remove();
             queryDatabase(starsInQuery);
+
+            setTimeout(() => { // clean up actors with no movie
+                queryDatabase('DELETE FROM Actor WHERE id IN (select id from actor where id not in (select aid "id" from starsin))');
+            }, 1000);
         }
     });
     document.getElementById('actor-list').appendChild(child);
@@ -486,9 +489,6 @@ function queryActorsFromMovie(movieID) {
  * @param {object} director - the director to add
  */
 function addDirector(director) {
-    //TODO: figure out how to update when this changes
-    //probably should have ID here to remove it from directs on change
-
     const child = htmlToElement(generateActorListItem(director, 'director'));
     child.addEventListener('focusout', (e) => {
         activeContentEditableItem = e.target;
@@ -506,6 +506,10 @@ function addDirector(director) {
             const directsQuery = `DELETE FROM Directs WHERE dID = ${e.target.dataset.id} AND mID = ${document.getElementById('movie-view').dataset.id}`;
             e.target.remove();
             queryDatabase(directsQuery);
+
+            setTimeout(() => { // clean up actors with no movie
+                queryDatabase('DELETE FROM Director WHERE id IN (select id from Director where id not in (select did "id" from Directs))');
+            }, 1000);
         }
     });
     document.getElementById('director-list').appendChild(child);
@@ -519,7 +523,7 @@ function queryDirectorFromMovie(movieID) {
     const query = `SELECT Director.name, Director.id FROM Directs
                     INNER JOIN Director ON Director.id = dID
                     WHERE mID = ${movieID}`;
-    callbackOnDatabase(query, addDirector); // TODO: consider multiple directors
+    callbackOnDatabase(query, addDirector);
 }
 
 /**
@@ -659,7 +663,6 @@ function addActorResult(row, insertFirst) {
             const inputNode = document.getElementById('actor');
             inputNode.value = row.name;
             inputNode.dataset.id = row.id; // add a data attribute
-            // TODO: clear this if the value is changed / cleared
         }
         document.getElementById('search-input').value = ''; // clear search input
     });
@@ -788,7 +791,6 @@ function validateAddMovieCriteria() {
 
 
 /* Bind find button */
-// TODO: This is for find, need to do the same for add
 findAddbutton.addEventListener('click', () => {
     switch (document.getElementById('find-a-movie').dataset.type) {
     case 'add':
@@ -1050,12 +1052,20 @@ saveButton.addEventListener('click', () => {
                 if (element.dataset.removed != '') {
                     queryDatabase(`DELETE FROM StarsIn WHERE aID = ${element.dataset.removed} AND mID = ${mID}`);
                     queryDatabase(`INSERT INTO StarsIn (aID, mID) VALUES (${element.dataset.id}, ${mID})`);
+
+                    setTimeout(() => { // clean up actors with no movie
+                        queryDatabase('DELETE FROM Actor WHERE id IN (select id from actor where id not in (select aid "id" from starsin))');
+                    }, 1000);
                 }
                 break;
             default: // director
                 if (element.dataset.removed != '') {
                     queryDatabase(`DELETE FROM Directs WHERE dID = ${element.dataset.removed} AND mID = ${mID}`);
                     queryDatabase(`INSERT INTO Directs (dID, mID) VALUES (${element.dataset.id}, ${mID})`);
+
+                    setTimeout(() => { // clean up actors with no movie
+                        queryDatabase('DELETE FROM Director WHERE id IN (select id from Director where id not in (select did "id" from Directs))');
+                    }, 1000);
                 }
             }
         }
@@ -1077,13 +1087,18 @@ searchCancel.addEventListener('click', () => {
 /**
  * Deletes a movie
  */
-//TODO: delete other things that are depended on the movie, like review
 function deleteMovie() {
     const id = document.getElementById('movie-view').dataset.id;
     console.log(`Delete ${id}`);
     queryDatabase(`DELETE FROM Movie WHERE id = ${id}`);
     queryDatabase(`DELETE FROM StarsIn WHERE mID = ${id}`);
     queryDatabase(`DELETE FROM Directs WHERE mID = ${id}`);
+    queryDatabase(`DELETE FROM Describes where mID = ${id}`);
+    setTimeout(() => { // clean up actors with no movie
+        queryDatabase('DELETE FROM Actor WHERE id IN (select id from actor where id not in (select aid "id" from starsin))');
+        queryDatabase('DELETE FROM Director WHERE id IN (select id from Director where id not in (select did "id" from Directs))');
+        queryDatabase('DELETE FROM Review WHERE id IN (select id from Review WHERE id not in (SELECT rID FROM Describes))');
+    }, 1000);
     cleanupMovieView();
 }
 
@@ -1145,7 +1160,6 @@ function generateTopResultTemplate(movie) {
  * Adds a top result div
  * @param {row object} row  - row from query
  */
-//TODO: order by
 function addtopResult(row) {
     const child = htmlToElement(generateTopResultTemplate(row));
     child.addEventListener('click', () => { // add event listener to element
@@ -1166,7 +1180,7 @@ const topMoviesButton = document.getElementById('top-movies');
 topMoviesButton.addEventListener('click', () => {
     findMovieDiv.classList.add('hide');
     document.getElementById('top-movie-view').classList.remove('hide');
-    const query = 'SELECT id, title, rating, count, runtime, info, releaseDate FROM movie WHERE rating > 65 AND count>1000000 AND count != ""';
+    const query = 'SELECT id, title, rating, count, runtime, info, releaseDate FROM movie WHERE rating > 65 AND count>1000000 AND count != "" ORDER BY rating DESC';
     callbackOnDatabase(query, addtopResult);
 });
 
