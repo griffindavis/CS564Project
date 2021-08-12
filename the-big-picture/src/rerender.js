@@ -53,7 +53,7 @@ function callbackOnDatabase(query, callback, insert) {
         console.log('Connected to the  database.');
     });
 
-    //console.log(query);
+    console.log(query);
 
     db.serialize(() => {
         db.each(query, (err, row) => {
@@ -582,7 +582,7 @@ function addMovieResults(movie) {
 function queryActor(name) {
     let query = 'SELECT Actor.id, Actor.name FROM Actor ';
     const rating = document.getElementById('rating').value;
-    if (rating != '') {
+    if (rating != '' && document.getElementById('find-a-movie').dataset.type == 'find') {
         query += `INNER JOIN StarsIn ON aID = Actor.id INNER JOIN Movie ON mID = Movie.id WHERE Movie.rating ${document.getElementById('select').value} ${rating} AND Movie.rating != ''`;
     }
     if (name != '') {
@@ -600,7 +600,7 @@ function queryActor(name) {
 function queryDirector(name) {
     let query = 'SELECT Director.id, Director.name FROM Director ';
     const rating = document.getElementById('rating').value;
-    if (rating != '') {
+    if (rating != '' && document.getElementById('find-a-movie').dataset.type == 'find') {
         query += `INNER JOIN Directs ON dID = Director.id INNER JOIN Movie ON mID = Movie.id WHERE Movie.rating ${document.getElementById('select').value} ${rating}`;
     }
     if (name != '') {
@@ -645,19 +645,27 @@ function addActorResult(row, insertFirst) {
                 }
             }
             else { // new actor
-                if (!confirm(`Would you like to create new Actor: ${row.name}?`)) {
-                    document.getElementById('search-input').value = ''; // clear search input
-                    return;
+                if (child.dataset.new) {
+                    if (!confirm(`Would you like to create new Actor: ${row.name}?`)) {
+                        document.getElementById('search-input').value = ''; // clear search input
+                        return;
+                    }
                 }
                 activeContentEditableItem = addActor(row);
-                const actorQuery = `INSERT INTO Actor (id, name) VALUES (${row.id}, "${row.name}")`;
-                const StarsInQuery = `INSERT INTO StarsIn (aID, mID) VALUES (${nextActorId}, ${document.getElementById('movie-view').dataset.id})`;
-                queryDatabase(actorQuery);
+                if (child.dataset.new) {
+                    const actorQuery = `INSERT INTO Actor (id, name) VALUES (${row.id}, "${row.name}")`;
+                    queryDatabase(actorQuery);
+                    nextActorId++;
+                }
+                
+                const StarsInQuery = `INSERT INTO StarsIn (aID, mID) VALUES (${row.id}, ${document.getElementById('movie-view').dataset.id})`;
+                
                 queryDatabase(StarsInQuery);
-                nextActorId++;
+                
             }
             activeContentEditableItem.innerText = row.name;
             activeContentEditableItem.dataset.id = row.id;
+            activeContentEditableItem = null;
         }
         else {
             const inputNode = document.getElementById('actor');
@@ -667,6 +675,7 @@ function addActorResult(row, insertFirst) {
         document.getElementById('search-input').value = ''; // clear search input
     });
     if (insertFirst) {
+        child.dataset.new = true;
         searchResultsDiv.insertBefore(child, searchResultsDiv.firstChild);
     }
     else {
@@ -699,19 +708,27 @@ function addDirectorResult(row, insertFirst) {
                 }
             }
             else { // new director
-                if (!confirm(`Would you like to create new Director: ${row.name}?`)) {
-                    document.getElementById('search-input').value = ''; // clear search input
-                    return;
+                if (child.dataset.new) {
+                    if (!confirm(`Would you like to create new Director: ${row.name}?`)) {
+                        document.getElementById('search-input').value = ''; // clear search input
+                        return;
+                    }
                 }
                 activeContentEditableItem = addDirector(row);
-                const directorQuery = `INSERT INTO Director (id, name) VALUES (${row.id}, "${row.name}")`;
-                const directsQuery = `INSERT INTO Directs (dID, mID) VALUES (${nextDirectorId}, ${document.getElementById('movie-view').dataset.id})`;
-                queryDatabase(directorQuery);
+                if (child.dataset.new) {
+                    const directorQuery = `INSERT INTO Director (id, name) VALUES (${row.id}, "${row.name}")`;
+                    queryDatabase(directorQuery);
+                    nextDirectorId++;
+                }
+                
+                const directsQuery = `INSERT INTO Directs (dID, mID) VALUES (${row.id}, ${document.getElementById('movie-view').dataset.id})`;
+                
                 queryDatabase(directsQuery);
-                nextDirectorId++;
+                
             }
             activeContentEditableItem.innerText = row.name;
             activeContentEditableItem.dataset.id = row.id;
+            activeContentEditableItem = null;
         }
         else {
             const inputNode = document.getElementById('director');
@@ -721,6 +738,7 @@ function addDirectorResult(row, insertFirst) {
         document.getElementById('search-input').value = ''; // clear search input
     });
     if (insertFirst) {
+        child.dataset.new = true;
         searchResultsDiv.insertBefore(child, searchResultsDiv.firstChild);
     }
     else {
@@ -1006,12 +1024,13 @@ findMovieButton.addEventListener('click', () => {
     toHide.classList.add('hide');
     document.getElementById('select').classList.remove('hide');
     document.getElementById('review-string-input-container').classList.remove('hide');
+    document.getElementById('release-date-label').innerText = 'Release Year:';
 });
 
 /* binding the add movie button */
 addMovieButton.addEventListener('click', () => {
     showAddMovie();
-
+    document.getElementById('select').classList.add('hide');
     // make sure the type is add so we know what to do on save
     if (document.getElementById('find-a-movie').dataset.type == 'add') {
         return;// don't constantly toggle these things below
@@ -1025,8 +1044,9 @@ addMovieButton.addEventListener('click', () => {
     toHide.id = 'hidden-input';
     hidden.classList.remove('hide');
     toHide.classList.add('hide');
-    document.getElementById('select').classList.add('hide');
+    
     document.getElementById('review-string-input-container').classList.add('hide');
+    document.getElementById('release-date-label').innerText = 'Release Date:';
 });
 
 /* Bind edit button to toggle editable items */
@@ -1040,7 +1060,8 @@ saveButton.addEventListener('click', () => {
     const info = document.getElementById('info').value;
     const releaseDate = document.getElementById('releaseDate-movie').value;
     const runtime = document.getElementById('runtime-edit').value;
-    const query = `UPDATE Movie SET info = "${info}", releaseDate = "${releaseDate}", runtime = ${runtime} WHERE Movie.id = ${mID}`;
+    const rating = document.getElementById('rating-view').value;
+    const query = `UPDATE Movie SET info = "${info}", releaseDate = "${releaseDate}", rating = "${rating}", runtime = "${runtime}" WHERE Movie.id = ${mID}`;
 
     queryDatabase(query);
 
