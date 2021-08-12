@@ -40,9 +40,8 @@ CREATE TABLE Movie (
 .import --skip 1 /Users/Griffin/dev/classes/cs564/CS564Project/the-big-picture/database/movies.csv Movie
 
 CREATE TABLE Describes (
-    rID INTEGER, 
-    mID INTEGER,
-    PRIMARY KEY (rID, mID)
+    rID INTEGER PRIMARY KEY, 
+    mID INTEGER
 );
 
 INSERT INTO Describes (rID, mID)
