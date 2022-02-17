@@ -9,4 +9,5 @@ When creating the database, ensure that rotten_tomatoes_critic_reviews.csv is do
 
     From there you should be able to run: sqlite3 theBigPicture.db ".read ../createDB.txt"
     
-## This contains the code for an Electron application acting as a repository for movies. 
+### This contains the code for an Electron application acting as a repository for movies. 
+![Screenshot of the application](The&#32;Big&#32;Picture.png)
